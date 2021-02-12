@@ -2,6 +2,10 @@ language: java
 jdk:
   - oraclejdk11
 
+before_script:
+  - sleep 15
+  - mongo localhost:27017/local ./scripts/crear_datos.js 
+
 script:
   - mvn -e -DTRAVIS_JOB_ID=$TRAVIS_JOB_ID clean install
 

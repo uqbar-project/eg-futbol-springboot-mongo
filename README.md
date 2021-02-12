@@ -2,8 +2,6 @@
 
 [![Build Status](https://travis-ci.com/uqbar-project/eg-futbol-springboot-mongo.svg?branch=master)](https://travis-ci.com/uqbar-project/eg-futbol-springboot-mongo)
 
-## Pasos previos
-
 ## Objetivo
 
 Testea el mapeo de una [aplicación de planteles de equipos de fútbol](https://github.com/uqbar-project/eg-futbol-springboot-mongo/wiki) con MongoDB. 
@@ -42,9 +40,102 @@ Luego sí, podés correr los tests del proyecto, que verifica
 
 ## Las consultas
 
-TODO
+Para saber si un jugador está en un equipo, la primera consulta que queremos resolver es qué jugadores pertenecen a un equipo. El query en MongoDB es
 
+```js
+db.equipos.find({ equipo: 'Boca' })
+```
 
+Eso nos devuelve los documentos respetando la jerarquía original:
 
+- Equipo
+  - jugadores
 
+Como nosotros queremos que nos devuelva la lista de jugadores, utilizaremos la técnica `aggregate`:
 
+```js
+db.equipos.aggregate([ 
+          { $unwind: "$jugadores" }, 
+          { "$match" : { "equipo" : "Boca"}},
+          { $project: { "nombre" : "$jugadores.nombre", "posicion" : "$jugadores.posicion"}}, 
+          { $sort: { nombre: 1 } }
+   ]);
+```
+
+Aggregate recibe como parámetro un **pipeline** o una serie de transformaciones que debemos aplicar:
+
+- [**unwind**](https://docs.mongodb.com/manual/reference/operator/aggregation/unwind/) permite deconstruir la jerarquía equipo > jugadores, como resultado obtenemos una lista "aplanada" de jugadores
+- **match** permite filtrar los elementos, en este caso seleccionando el equipo de fútbol
+- **project** define la lista de atributos que vamos a mostrar, parado desde jugador podemos ir hacia arriba o abajo en nuestra jerarquía. Por ejemplo si queremos traer el nombre del equipo solo basta con agregarlo al final:
+
+```js
+db.equipos.aggregate([ 
+          ...
+          { $project: { "nombre" : "$jugadores.nombre", "posicion" : "$jugadores.posicion", "equipo": "$equipo" }}, 
+```
+
+Eso producirá
+
+```js
+{ 
+    "_id" : ObjectId("60232692edaabd1d5dddeae0"), 
+    "nombre" : "Blandi, Nicolás", 
+    "posicion" : "Delantero", 
+    "equipo" : "Boca"
+}
+```
+
+Si queremos modificar el nombre de la columna de output debemos hacer este pequeño cambio:
+
+```js
+db.equipos.aggregate([ 
+          ...
+          { $project: { "nombre" : "$jugadores.nombre", "posicion" : "$jugadores.posicion", "nombre_equipo": "$equipo" }}, 
+```
+
+entonces el output será
+
+```js
+{ 
+    "_id" : ObjectId("60232692edaabd1d5dddeae0"), 
+    "nombre" : "Blandi, Nicolás", 
+    "posicion" : "Delantero", 
+    "nombre_equipo" : "Boca"
+}
+```
+
+## Pasando de MongoDB a Springboot
+
+Ahora que sabemos cómo ejecutar la consulta en Mongo, el controller llamará a una clase repositorio que implementaremos nosotros, ya que la anotación `@Query` todavía no tiene soporte completo para operaciones de agregación.
+
+```xtend
+	def jugadoresDelEquipo(String nombreEquipo) {
+		val matchOperation = Aggregation.match(Criteria.where("equipo").regex(nombreEquipo, "i")) // "i" es por case insensitive
+		Aggregation.newAggregation(matchOperation, unwindJugadores, projectJugadores).query
+	}
+
+	def unwindJugadores() {
+		Aggregation.unwind("jugadores")
+	}
+	
+	def projectJugadores() {
+		Aggregation.project("$jugadores.nombre", "$jugadores.posicion")
+	}
+
+	// extension method para ejecutar la consulta	
+	def query(Aggregation aggregation) {
+		val AggregationResults<Jugador> result = mongoTemplate.aggregate(aggregation, "equipos", Jugador)
+		return result.mappedResults
+	}
+```
+
+Las operaciones son bastante similares, pero **atención que el orden es importante y puede ocasionar problemas en la devolución correcta de datos**:
+
+- primero el match que filtra por nombre de equipo sin importar mayúsculas/minúsculas (porque está en el documento raíz)
+- luego el unwind para aplanar la estructura a una lista de jugadores
+- por último definimos los atributos que queremos mostrar
+- y luego tenemos un `extension method` para transformar el pipeline de agregación en una lista de elementos para el controller, que luego serializará a json
+
+## Búsqueda de jugadores por nombre
+
+## Testeo de integración
