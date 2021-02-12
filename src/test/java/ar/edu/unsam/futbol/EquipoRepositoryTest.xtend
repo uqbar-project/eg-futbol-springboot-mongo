@@ -12,6 +12,8 @@ import org.springframework.test.context.junit.jupiter.SpringExtension
 import static org.junit.jupiter.api.Assertions.assertEquals
 import static org.junit.jupiter.api.Assertions.assertTrue
 import static org.junit.jupiter.api.Assertions.assertFalse
+import java.util.List
+import ar.edu.unsam.futbol.domain.Jugador
 
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.DEFINED_PORT)
 @AutoConfigureDataMongo
@@ -22,22 +24,24 @@ class EquipoRepositoryTest {
 	@Autowired
 	EquipoRepository equipoRepository
 	
-	public String BOCA = "boca"
-	public String PALERMO = "Palermo"
-	public String RIQUELME = "Riquelme"
+	public String BOCA = "Boca"
+	public String PALERMO = "Palermo, Martín"
+	public String RIQUELME = "Riquelme, Juan Román"
 	
 	@Test
 	@DisplayName("se puede buscar un jugador en base a un equipo")
 	def void testRiquelmeEsJugadorDeBoca() {
-		val jugadoresBoca = equipoRepository.jugadoresDelEquipo(BOCA)
-		assertTrue(jugadoresBoca.contains(RIQUELME))
+		assertTrue(equipoRepository.jugadoresDelEquipo(BOCA).contieneJugador(RIQUELME))
 	}
 
 	@Test
 	@DisplayName("un jugador que no está en un equipo no aparece en el plantel")
 	def void testPalermoYaNoEsJugadorDeBoca() {
-		val jugadoresBoca = equipoRepository.jugadoresDelEquipo(BOCA)
-		assertFalse(jugadoresBoca.contains(PALERMO))
+		assertFalse(equipoRepository.jugadoresDelEquipo(BOCA).contieneJugador(PALERMO))
+	}
+	
+	def boolean contieneJugador(List<Jugador> jugadores, String unJugador) {
+		jugadores.exists [ jugador | jugador.nombre.toLowerCase.contains(unJugador.toLowerCase) ]
 	}
 	
 	@Test
