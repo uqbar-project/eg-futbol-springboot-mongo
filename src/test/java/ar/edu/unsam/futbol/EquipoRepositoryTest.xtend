@@ -40,6 +40,7 @@ class EquipoRepositoryTest {
 		assertFalse(equipoRepository.jugadoresDelEquipo(BOCA).contieneJugador(PALERMO))
 	}
 	
+	// extension method - helper para validar si el nombre de un jugador está en una lista de objetos Jugador
 	def boolean contieneJugador(List<Jugador> jugadores, String unJugador) {
 		jugadores.exists [ jugador | jugador.nombre.toLowerCase.contains(unJugador.toLowerCase) ]
 	}

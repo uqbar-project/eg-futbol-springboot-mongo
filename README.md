@@ -23,8 +23,8 @@ $ sudo service mongod start
 
 En la carpeta [scripts](scripts) vas a encontrar dos archivos:
 
-* [Script Jugadores](scripts/Script_Jugadores.js) para ejecutarlo en el shell de MongoDB (ejecutable mongo). Este script inserta datos de varios equipos de fútbol con sus jugadores.
-* [Queries Jugadores](scripts/Queries_Jugadores.js) con queries de ejemplo para probar directamente en el shell.
+* [crear_datos.js](scripts/crear_datos.js) para ejecutarlo en el shell de MongoDB (ejecutable mongo). Este script inserta datos de varios equipos de fútbol con sus jugadores.
+* [queries.js](scripts/queries.js) con queries de ejemplo para probar directamente en el shell.
 
 Acá te mostramos cómo correr los scripts con [Robo 3T](https://robomongo.org/) un cliente MongoDB con algunas prestaciones gráficas:
 
@@ -56,7 +56,7 @@ Como nosotros queremos que nos devuelva la lista de jugadores, utilizaremos la t
 ```js
 db.equipos.aggregate([ 
           { $unwind: "$jugadores" }, 
-          { "$match" : { "equipo" : "Boca"}},
+          { $match: { "equipo" : "Boca"}},
           { $project: { "nombre" : "$jugadores.nombre", "posicion" : "$jugadores.posicion"}}, 
           { $sort: { nombre: 1 } }
    ]);
@@ -138,4 +138,111 @@ Las operaciones son bastante similares, pero **atención que el orden es importa
 
 ## Búsqueda de jugadores por nombre
 
+El query para buscar jugadores por nombre en Mongo no difiere mucho de nuestra anterior consulta:
+
+```js
+db.equipos.aggregate([ 
+          { $unwind: "$jugadores" }, 
+          { $match: { "jugadores.nombre": { $regex: "riq.*", $options: "i" }}},
+          { $project: { "nombre" : "$jugadores.nombre", "posicion" : "$jugadores.posicion"}}, 
+          { $sort: { nombre: 1 } }
+   ]);
+```
+
+- primero aplanamos la estructura a una lista de documentos jugadores
+- luego filtramos los jugadores que comienzan con "riq", sin importar mayúsculas
+- devolveremos los atributos nombre y posición
+- ordenando la lista alfabéticamente por nombre, en forma ascendente (1, -1 sería descendente)
+
+Pero debemos prestar atención al pipeline, ya que si invertimos las operaciones unwind y match de esta manera:
+
+```js
+db.equipos.aggregate([ 
+          { $match: { "jugadores.nombre": { $regex: "riq.*", $options: "i" }}},
+          { $unwind: "$jugadores" }, 
+          { $project: { "nombre" : "$jugadores.nombre", "posicion" : "$jugadores.posicion"}}, 
+          { $sort: { nombre: 1 } }
+   ]);
+```
+
+La consulta funciona totalmente distinto, porque en este caso
+
+- primero filtra los equipos que tengan un jugador que comience con "riq", sin importar mayúsculas
+- luego aplana la lista de jugadores de esos equipos
+
+Esta misma consideración hay que hacerla cuando definamos la Aggregation:
+
+```xtend
+	def jugadoresPorNombre(String nombreJugador) {
+		val matchOperation = Aggregation.match(Criteria.where("jugadores.nombre").regex(nombreJugador, 'i'))
+		Aggregation.newAggregation(unwindJugadores, matchOperation, projectJugadores).query
+	}
+```
+
 ## Testeo de integración
+
+El approach que vamos a tomar para los tests es ciertamente cuestionable, pero para mantener el ejemplo simple vamos a asumir que en la base de documentos tenemos la información generada por el script `crear_datos.js`. Con eso en cuenta testearemos
+
+- la búsqueda de jugadores por nombre
+  - clase de equivalencia 1: un jugador que está en un equipo
+  - clase de equivalencia 2: un jugador que no está en el equipo
+- la búsqueda de jugadores por nombre y apellido  
+  - recuperamos dos jugadores de distintos equipos satisfactoriamente (única clase de equivalencia)
+  
+Es interesante remarcar que a este punto no queremos utilizar stubs ni mocks, porque queremos probar que nuestros componentes se conectan a la base y recuperan la información como nosotros queremos. Estamos construyendo entonces tests de integración, que en Springboot se anotan de la siguiente manera:
+
+```xtend
+@SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.DEFINED_PORT)
+@AutoConfigureDataMongo
+@ExtendWith(SpringExtension)
+@DisplayName("Dados varios planteles con jugadores")
+class EquipoRepositoryTest {
+```
+
+La anotación @AutoConfigureDataMongo es importante para importar la configuración local que se inyecta en la dependencia a MongoTemplate (la que usa nuestra clase repositorio). 
+
+Siguiendo con nuestra idea original, implementemos los tres tests:
+
+```xtend
+	@Test
+	@DisplayName("se puede buscar un jugador en base a un equipo")
+	def void testRiquelmeEsJugadorDeBoca() {
+		assertTrue(equipoRepository.jugadoresDelEquipo(BOCA).contieneJugador(RIQUELME))
+	}
+
+	@Test
+	@DisplayName("un jugador que no está en un equipo no aparece en el plantel")
+	def void testPalermoYaNoEsJugadorDeBoca() {
+		assertFalse(equipoRepository.jugadoresDelEquipo(BOCA).contieneJugador(PALERMO))
+	}
+
+  // extension method - helper para validar si el nombre de un jugador está en una lista de objetos Jugador
+	def boolean contieneJugador(List<Jugador> jugadores, String unJugador) {
+		jugadores.exists [ jugador | jugador.nombre.toLowerCase.contains(unJugador.toLowerCase) ]
+	}
+	
+	@Test
+	@DisplayName("se puede navegar directamente los jugadores a pesar de estar embebidos en los planteles")
+	def void testHayDosJugadoresQueComienzanConCasta() {
+		val jugadores = equipoRepository.jugadoresPorNombre("Casta")
+		assertEquals(2, jugadores.size)
+	}
+```
+
+Para que el script de Travis funcione correctamente, levantamos el servicio de Mongo primero y luego invocamos al script que crea los equipos de ejemplo:
+
+```yml
+...
+
+services: mongodb
+
+before_script:
+  - sleep 15
+  - mongo localhost:27017/local ./scripts/crear_datos.js 
+
+...
+```
+
+## Alternativas al test que presentamos
+
+Una mejor idea podría ser que el test trabaje con una colección de documentos in-memory, de la misma manera que H2 lo hace para JPA. El lector interesado puede investigar [un ejemplo usando Flapdoodle | Embedded MongoDB](https://www.baeldung.com/spring-boot-embedded-mongodb) (también pueden ver el [proyecto en Github](https://www.baeldung.com/spring-boot-embedded-mongodb)).
