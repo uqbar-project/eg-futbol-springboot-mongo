@@ -55,11 +55,11 @@ Como nosotros queremos que nos devuelva la lista de jugadores, utilizaremos la t
 
 ```js
 db.equipos.aggregate([ 
-          { $unwind: "$jugadores" }, 
-          { $match: { "equipo" : "Boca"}},
-          { $project: { "nombre" : "$jugadores.nombre", "posicion" : "$jugadores.posicion"}}, 
-          { $sort: { nombre: 1 } }
-   ]);
+  { $unwind: "$jugadores" }, 
+  { $match: { "equipo" : "Boca"}},
+  { $project: { "nombre" : "$jugadores.nombre", "posicion" : "$jugadores.posicion"}}, 
+  { $sort: { nombre: 1 } }
+]);
 ```
 
 Aggregate recibe como parámetro un **pipeline** o una serie de transformaciones que debemos aplicar:
@@ -70,18 +70,18 @@ Aggregate recibe como parámetro un **pipeline** o una serie de transformaciones
 
 ```js
 db.equipos.aggregate([ 
-          ...
-          { $project: { "nombre" : "$jugadores.nombre", "posicion" : "$jugadores.posicion", "equipo": "$equipo" }}, 
+  ...
+  { $project: { "nombre" : "$jugadores.nombre", "posicion" : "$jugadores.posicion", "equipo": "$equipo" }}, 
 ```
 
 Eso producirá
 
 ```js
 { 
-    "_id" : ObjectId("60232692edaabd1d5dddeae0"), 
-    "nombre" : "Blandi, Nicolás", 
-    "posicion" : "Delantero", 
-    "equipo" : "Boca"
+  "_id" : ObjectId("60232692edaabd1d5dddeae0"), 
+  "nombre" : "Blandi, Nicolás", 
+  "posicion" : "Delantero", 
+  "equipo" : "Boca"
 }
 ```
 
@@ -89,8 +89,8 @@ Si queremos modificar el nombre de la columna de output debemos hacer este peque
 
 ```js
 db.equipos.aggregate([ 
-          ...
-          { $project: { "nombre" : "$jugadores.nombre", "posicion" : "$jugadores.posicion", "nombre_equipo": "$equipo" }}, 
+  ...
+  { $project: { "nombre" : "$jugadores.nombre", "posicion" : "$jugadores.posicion", "nombre_equipo": "$equipo" }}, 
 ```
 
 entonces el output será
@@ -109,24 +109,24 @@ entonces el output será
 Ahora que sabemos cómo ejecutar la consulta en Mongo, el controller llamará a una clase repositorio que implementaremos nosotros, ya que la anotación `@Query` todavía no tiene soporte completo para operaciones de agregación.
 
 ```xtend
-	def jugadoresDelEquipo(String nombreEquipo) {
-		val matchOperation = Aggregation.match(Criteria.where("equipo").regex(nombreEquipo, "i")) // "i" es por case insensitive
-		Aggregation.newAggregation(matchOperation, unwindJugadores, projectJugadores).query
-	}
+def jugadoresDelEquipo(String nombreEquipo) {
+	val matchOperation = Aggregation.match(Criteria.where("equipo").regex(nombreEquipo, "i")) // "i" es por case insensitive
+	Aggregation.newAggregation(matchOperation, unwindJugadores, projectJugadores).query
+}
 
-	def unwindJugadores() {
-		Aggregation.unwind("jugadores")
-	}
-	
-	def projectJugadores() {
-		Aggregation.project("$jugadores.nombre", "$jugadores.posicion")
-	}
+def unwindJugadores() {
+	Aggregation.unwind("jugadores")
+}
 
-	// extension method para ejecutar la consulta	
-	def query(Aggregation aggregation) {
-		val AggregationResults<Jugador> result = mongoTemplate.aggregate(aggregation, "equipos", Jugador)
-		return result.mappedResults
-	}
+def projectJugadores() {
+	Aggregation.project("$jugadores.nombre", "$jugadores.posicion")
+}
+
+// extension method para ejecutar la consulta	
+def query(Aggregation aggregation) {
+	val AggregationResults<Jugador> result = mongoTemplate.aggregate(aggregation, "equipos", Jugador)
+	return result.mappedResults
+}
 ```
 
 Las operaciones son bastante similares, pero **atención que el orden es importante y puede ocasionar problemas en la devolución correcta de datos**:
@@ -142,11 +142,11 @@ El query para buscar jugadores por nombre en Mongo no difiere mucho de nuestra a
 
 ```js
 db.equipos.aggregate([ 
-          { $unwind: "$jugadores" }, 
-          { $match: { "jugadores.nombre": { $regex: "riq.*", $options: "i" }}},
-          { $project: { "nombre" : "$jugadores.nombre", "posicion" : "$jugadores.posicion"}}, 
-          { $sort: { nombre: 1 } }
-   ]);
+  { $unwind: "$jugadores" }, 
+  { $match: { "jugadores.nombre": { $regex: "riq.*", $options: "i" }}},
+  { $project: { "nombre" : "$jugadores.nombre", "posicion" : "$jugadores.posicion"}}, 
+  { $sort: { nombre: 1 } }
+]);
 ```
 
 - primero aplanamos la estructura a una lista de documentos jugadores
@@ -158,11 +158,11 @@ Pero debemos prestar atención al pipeline, ya que si invertimos las operaciones
 
 ```js
 db.equipos.aggregate([ 
-          { $match: { "jugadores.nombre": { $regex: "riq.*", $options: "i" }}},
-          { $unwind: "$jugadores" }, 
-          { $project: { "nombre" : "$jugadores.nombre", "posicion" : "$jugadores.posicion"}}, 
-          { $sort: { nombre: 1 } }
-   ]);
+  { $match: { "jugadores.nombre": { $regex: "riq.*", $options: "i" }}},
+  { $unwind: "$jugadores" }, 
+  { $project: { "nombre" : "$jugadores.nombre", "posicion" : "$jugadores.posicion"}}, 
+  { $sort: { nombre: 1 } }
+]);
 ```
 
 La consulta funciona totalmente distinto, porque en este caso
@@ -173,10 +173,10 @@ La consulta funciona totalmente distinto, porque en este caso
 Esta misma consideración hay que hacerla cuando definamos la Aggregation:
 
 ```xtend
-	def jugadoresPorNombre(String nombreJugador) {
-		val matchOperation = Aggregation.match(Criteria.where("jugadores.nombre").regex(nombreJugador, 'i'))
-		Aggregation.newAggregation(unwindJugadores, matchOperation, projectJugadores).query
-	}
+def jugadoresPorNombre(String nombreJugador) {
+	val matchOperation = Aggregation.match(Criteria.where("jugadores.nombre").regex(nombreJugador, 'i'))
+	Aggregation.newAggregation(unwindJugadores, matchOperation, projectJugadores).query
+}
 ```
 
 ## Testeo de integración
@@ -204,42 +204,40 @@ La anotación @AutoConfigureDataMongo es importante para importar la configuraci
 Siguiendo con nuestra idea original, implementemos los tres tests:
 
 ```xtend
-	@Test
-	@DisplayName("se puede buscar un jugador en base a un equipo")
-	def void testRiquelmeEsJugadorDeBoca() {
-		assertTrue(equipoRepository.jugadoresDelEquipo(BOCA).contieneJugador(RIQUELME))
-	}
+@Test
+@DisplayName("se puede buscar un jugador en base a un equipo")
+def void testRiquelmeEsJugadorDeBoca() {
+	assertTrue(equipoRepository.jugadoresDelEquipo(BOCA).contieneJugador(RIQUELME))
+}
 
-	@Test
-	@DisplayName("un jugador que no está en un equipo no aparece en el plantel")
-	def void testPalermoYaNoEsJugadorDeBoca() {
-		assertFalse(equipoRepository.jugadoresDelEquipo(BOCA).contieneJugador(PALERMO))
-	}
+@Test
+@DisplayName("un jugador que no está en un equipo no aparece en el plantel")
+def void testPalermoYaNoEsJugadorDeBoca() {
+	assertFalse(equipoRepository.jugadoresDelEquipo(BOCA).contieneJugador(PALERMO))
+}
 
-  // extension method - helper para validar si el nombre de un jugador está en una lista de objetos Jugador
-	def boolean contieneJugador(List<Jugador> jugadores, String unJugador) {
-		jugadores.exists [ jugador | jugador.nombre.toLowerCase.contains(unJugador.toLowerCase) ]
-	}
-	
-	@Test
-	@DisplayName("se puede navegar directamente los jugadores a pesar de estar embebidos en los planteles")
-	def void testHayDosJugadoresQueComienzanConCasta() {
-		val jugadores = equipoRepository.jugadoresPorNombre("Casta")
-		assertEquals(2, jugadores.size)
-	}
+// extension method - helper para validar si el nombre de un jugador está en una lista de objetos Jugador
+def boolean contieneJugador(List<Jugador> jugadores, String unJugador) {
+	jugadores.exists [ jugador | jugador.nombre.toLowerCase.contains(unJugador.toLowerCase) ]
+}
+
+@Test
+@DisplayName("se puede navegar directamente los jugadores a pesar de estar embebidos en los planteles")
+def void testHayDosJugadoresQueComienzanConCasta() {
+	val jugadores = equipoRepository.jugadoresPorNombre("Casta")
+	assertEquals(2, jugadores.size)
+}
 ```
 
 Para que el script de Travis funcione correctamente, levantamos el servicio de Mongo primero y luego invocamos al script que crea los equipos de ejemplo:
 
 ```yml
 ...
-
 services: mongodb
 
 before_script:
   - sleep 15
   - mongo localhost:27017/local ./scripts/crear_datos.js 
-
 ...
 ```
 
