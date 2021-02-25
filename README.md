@@ -244,3 +244,11 @@ before_script:
 ## Alternativas al test que presentamos
 
 Una mejor idea podría ser que el test trabaje con una colección de documentos in-memory, de la misma manera que H2 lo hace para JPA. El lector interesado puede investigar [un ejemplo usando Flapdoodle | Embedded MongoDB](https://www.baeldung.com/spring-boot-embedded-mongodb) (también pueden ver el [proyecto en Github](https://www.baeldung.com/spring-boot-embedded-mongodb)).
+
+## Open API / Swagger
+
+Como de costumbre, pueden investigar los endpoints en el navegador mediante la siguiente URL:
+
+```url
+http://localhost:8080/swagger-ui/index.html#
+```
