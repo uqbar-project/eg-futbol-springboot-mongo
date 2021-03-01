@@ -14,7 +14,7 @@
 	<version>0.0.1-SNAPSHOT</version>
 	<packaging>war</packaging>
 	<name>eg-futbol-springboot-mongo</name>
-	<description>TP Recetas - modificado para Algo3</description>
+	<description>Fútbol - PHM - Ejemplo en Spring Boot y Mongo</description>
 
 	<properties>
 		<project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
@@ -25,7 +25,7 @@
 		<dependency>
 			<groupId>org.eclipse.xtend</groupId>
 			<artifactId>org.eclipse.xtend.lib</artifactId>
-			<version>2.20.0</version>
+			<version>2.25.0.M3</version>
 		</dependency>
 
 		<dependency>
